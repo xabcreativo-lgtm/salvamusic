@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salva Music</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            900: '#121212',
+                            950: '#0a0a0a',
+                        }
+                    },
+                    keyframes: {
+                        spinSlow: {
+                            '0%': { transform: 'rotate(0deg)' },
+                            '100%': { transform: 'rotate(360deg)' },
+                        }
+                    },
+                    animation: {
+                        'spin-slow': 'spinSlow 6s linear infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PocketBase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/pocketbase@0.21.1/dist/pocketbase.umd.js"></script>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#10b981">
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col font-sans select-none pb-36">
+
+    <!-- AUTENTICACIÓN -->
+    <div id="auth-container" class="flex flex-col items-center justify-center flex-grow p-6">
+        <div class="w-full max-w-sm bg-zinc-900 border border-zinc-800 p-8 rounded-2xl shadow-2xl">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-2xl mx-auto flex items-center justify-center text-2xl mb-3">
+                    <i class="fa-solid fa-music"></i>
+                </div>
+                <h1 id="auth-title" class="text-xl font-bold">Iniciar Sesión</h1>
+                <p class="text-xs text-zinc-400 mt-1">Salva Music - Streaming privado</p>
+            </div>
+            
+            <form id="auth-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Correo electrónico</label>
+                    <input type="email" id="email" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Contraseña</label>
+                    <input type="password" id="password" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 text-white">
+                </div>
+                <button type="submit" id="auth-btn" class="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition text-sm">Entrar</button>
+            </form>
+
+            <div class="text-center mt-6">
+                <button onclick="toggleAuthMode()" class="text-xs text-zinc-400 hover:text-emerald-400 transition">
+                    <span id="auth-switch-text">¿No tienes cuenta?</span> <strong id="auth-switch-btn" class="text-emerald-400">Regístrate</strong>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APLICACIÓN PRINCIPAL -->
+    <div id="app-container" class="hidden flex flex-col flex-grow">
+        
+        <!-- Header -->
+        <header class="flex items-center justify-between px-6 py-4 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur sticky top-0 z-40">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-music text-emerald-400 text-lg"></i>
+                <h1 class="font-bold text-base tracking-wide">Salva Music</h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="user-display" class="text-xs text-zinc-400 truncate max-w-[120px]"></span>
+                <button onclick="logout()" class="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 px-3 py-1.5 rounded-xl text-xs text-zinc-300 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-right-from-bracket"></i> Salir
+                </button>
+            </div>
+        </header>
+
+        <!-- Navegación por Pestañas -->
+        <nav class="flex gap-2 px-6 py-3 overflow-x-auto bg-zinc-950 border-b border-zinc-900">
+            <button onclick="switchTab('songs')" class="tab-btn bg-emerald-500 text-zinc-950 px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 flex-shrink-0">
+                <i class="fa-solid fa-house"></i> Mi Biblioteca
+            </button>
+            <button onclick="switchTab('upload')" class="tab-btn bg-zinc-900 text-zinc-300 border border-zinc-800 px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 flex-shrink-0">
+                <i class="fa-solid fa-cloud-arrow-up"></i> Subir
+            </button>
+            <button onclick="switchTab('playlists')" class="tab-btn bg-zinc-900 text-zinc-300 border border-zinc-800 px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 flex-shrink-0">
+                <i class="fa-solid fa-list"></i> Playlists
+            </button>
+            <button onclick="switchTab('jam')" class="tab-btn bg-zinc-900 text-zinc-300 border border-zinc-800 px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 flex-shrink-0">
+                <i class="fa-solid fa-users"></i> Jam
+            </button>
+        </nav>
+
+        <!-- Contenido de Pestañas -->
+        <main class="flex-grow p-6 max-w-xl mx-auto w-full">
+            
+            <!-- Pestaña Mi Biblioteca -->
+            <div id="tab-songs" class="tab-content space-y-3">
+                <div class="flex items-center justify-between bg-zinc-900 p-4 rounded-2xl border border-zinc-800 mb-4">
+                    <div>
+                        <h2 class="text-sm font-bold text-white">Biblioteca Musical</h2>
+                        <p id="library-count" class="text-xs text-zinc-400">0 canciones disponibles</p>
+                    </div>
+                    <button onclick="playAllLibrary()" class="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg">
+                        <i class="fa-solid fa-play"></i> Reproducir Todo
+                    </button>
+                </div>
+                <div id="songs-list" class="space-y-3"></div>
+            </div>
+
+            <!-- Pestaña Subir -->
+            <div id="tab-upload" class="tab-content hidden">
+                <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl shadow-xl">
+                    <h2 class="text-sm font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-cloud-arrow-up text-emerald-400"></i> Subir nueva música</h2>
+                    <form id="upload-form" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-zinc-400 mb-1">Título de la canción</label>
+                            <input type="text" id="song-title" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-zinc-400 mb-1">Artista</label>
+                            <input type="text" id="song-artist" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-zinc-400 mb-1">Letra (Opcional - Karaoke)</label>
+                            <textarea id="song-lyrics" rows="3" placeholder="Escribe o pega la letra aquí..." class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 text-white resize-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-zinc-400 mb-1">Archivo de Audio (MP3)</label>
+                            <input type="file" id="song-file" accept="audio/*" required class="w-full text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-emerald-400 hover:file:bg-zinc-700">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-zinc-400 mb-1">Imagen de Carátula (Opcional)</label>
+                            <input type="file" id="song-cover" accept="image/*" class="w-full text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-emerald-400 hover:file:bg-zinc-700">
+                        </div>
+                        <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition text-sm">Subir a la Biblioteca</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Pestaña Playlists -->
+            <div id="tab-playlists" class="tab-content hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-sm font-bold text-zinc-300">Tus Listas de Reproducción</h2>
+                    <button onclick="openCreatePlaylistModal()" class="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus"></i> Nueva Playlist
+                    </button>
+                </div>
+                
+                <div onclick="openOfflinePlaylist()" class="bg-zinc-900 border border-zinc-800 hover:border-emerald-500 p-4 rounded-2xl flex items-center justify-between cursor-pointer transition">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-xl flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-cloud-arrow-down"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-white">Offline</h3>
+                            <p class="text-xs text-zinc-400"><span id="offline-count">0</span> canciones guardadas</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-zinc-500"></i>
+                </div>
+
+                <div id="custom-playlists-container" class="space-y-3"></div>
+            </div>
+
+            <!-- Pestaña Jam -->
+            <div id="tab-jam" class="tab-content hidden space-y-4">
+                <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl space-y-4">
+                    <h2 class="text-sm font-bold flex items-center gap-2"><i class="fa-solid fa-users text-emerald-400"></i> Sala Jam (Sincronizada en vivo)</h2>
+                    <p class="text-xs text-zinc-400">Crea una sala o únete a una existente para escuchar música en sincronía total con otra persona.</p>
+                    <button onclick="createJamRoom()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition text-sm">Crear Nueva Sala</button>
+                    
+                    <div class="border-t border-zinc-800 pt-4 space-y-3">
+                        <input type="text" id="room-code-input" placeholder="Código de sala" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 text-white uppercase text-center font-bold tracking-widest">
+                        <button onclick="joinJamRoom()" class="w-full bg-zinc-800 hover:bg-zinc-700 text-emerald-400 font-bold py-3 rounded-xl transition text-sm">Unirse a Sala</button>
+                    </div>
+
+                    <div id="jam-status" class="hidden p-4 bg-zinc-950 rounded-xl text-center space-y-3 border border-zinc-800">
+                        <p class="text-xs text-zinc-300">Sala activa: <strong id="jam-room-code-display" class="text-emerald-400 text-sm"></strong></p>
+                        <button onclick="shareJamWhatsApp()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl transition text-xs flex items-center justify-center gap-2">
+                            <i class="fa-brands fa-whatsapp text-base"></i> Enviar Código por WhatsApp
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MODAL CREAR PLAYLIST -->
+    <div id="create-playlist-modal" class="hidden fixed inset-0 bg-zinc-950/80 backdrop-blur z-50 flex items-center justify-center p-4">
+        <div class="bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[85vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <h3 class="font-bold text-sm text-white flex items-center gap-2"><i class="fa-solid fa-list text-emerald-400"></i> Crear Nueva Playlist</h3>
+                <button onclick="closeCreatePlaylistModal()" class="text-zinc-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-zinc-400 mb-1">Nombre de la Playlist</label>
+                <input type="text" id="playlist-name-input" placeholder="Ej: Favoritas, Fiesta..." class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 text-white">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-zinc-400 mb-2">Selecciona las canciones de tu biblioteca:</label>
+                <div id="playlist-selectable-songs" class="overflow-y-auto max-h-[40vh] space-y-2 pr-1"></div>
+            </div>
+            <button onclick="saveNewPlaylist()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition text-sm">Guardar Playlist</button>
+        </div>
+    </div>
+
+    <!-- MODAL VER PLAYLIST -->
+    <div id="view-playlist-modal" class="hidden fixed inset-0 bg-zinc-950/80 backdrop-blur z-50 flex items-center justify-center p-4">
+        <div class="bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[80vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <h3 id="view-playlist-title" class="font-bold text-sm text-white truncate">Playlist</h3>
+                <button onclick="closeViewPlaylistModal()" class="text-zinc-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="view-playlist-songs" class="overflow-y-auto space-y-2 flex-grow"></div>
+        </div>
+    </div>
+
+    <!-- MODAL OFFLINE -->
+    <div id="offline-modal" class="hidden fixed inset-0 bg-zinc-950/80 backdrop-blur z-50 flex items-center justify-center p-4">
+        <div class="bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[80vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <h3 class="font-bold text-sm text-white flex items-center gap-2"><i class="fa-solid fa-cloud-arrow-down text-emerald-400"></i> Canciones Offline</h3>
+                <button onclick="closeOfflinePlaylist()" class="text-zinc-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="offline-songs-list" class="overflow-y-auto space-y-2 flex-grow"></div>
+        </div>
+    </div>
+
+    <!-- MODAL LETRA -->
+    <div id="lyrics-modal" class="hidden fixed inset-0 bg-zinc-950/90 backdrop-blur z-50 flex items-center justify-center p-4">
+        <div class="bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[80vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <h3 id="lyrics-song-title" class="font-bold text-sm text-white truncate">Letra de la canción</h3>
+                <button onclick="closeLyrics()" class="text-zinc-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="overflow-y-auto flex-grow py-2">
+                <pre id="lyrics-content" class="text-xs text-zinc-300 font-sans whitespace-pre-wrap leading-relaxed text-center"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- BARRA DE REPRODUCCIÓN FLOTANTE CON CARÁTULA / DISCO GIRATORIO Y SEEKBAR INDEPENDIENTE -->
+    <div id="audio-player-bar" class="hidden fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 p-4 shadow-2xl z-50">
+        <div class="max-w-md mx-auto flex flex-col gap-3">
+            
+            <!-- Barra de Progreso Independiente (Seekbar) -->
+            <div class="w-full flex items-center gap-2">
+                <span id="current-time" class="text-[10px] text-zinc-400 w-8 text-right">0:00</span>
+                <input type="range" id="progress-bar" value="0" min="0" max="100" step="0.1" class="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                <span id="total-duration" class="text-[10px] text-zinc-400 w-8">0:00</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3 overflow-hidden">
+                    <!-- Contenedor Visual: Carátula o Disco Giratorio de Acetato -->
+                    <div id="player-cover-container" class="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center bg-zinc-900 border border-zinc-800 relative">
+                        <!-- Si hay carátula -->
+                        <img id="player-cover-img" src="" class="w-full h-full object-cover hidden">
+                        <!-- Si NO hay carátula: Disco de acetato girando -->
+                        <div id="player-vinyl-disk" class="w-full h-full bg-zinc-900 rounded-full flex items-center justify-center border-2 border-zinc-800 animate-spin-slow shadow-inner">
+                            <div class="w-4 h-4 bg-zinc-950 rounded-full border border-emerald-500/50 flex items-center justify-center">
+                                <div class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="truncate">
+                        <h4 id="player-title" class="text-sm font-bold text-zinc-100 truncate">Título</h4>
+                        <p id="player-artist" class="text-xs text-zinc-400 truncate">Artista</p>
+                    </div>
+                </div>
+
+                <button onclick="openLyrics()" class="text-zinc-400 hover:text-emerald-400 p-2 transition" title="Ver Letra">
+                    <i class="fa-solid fa-microphone-lines text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Controles de Reproducción -->
+            <div class="flex items-center justify-around py-1">
+                <button id="shuffle-btn" onclick="toggleShuffle()" class="text-zinc-400 hover:text-e

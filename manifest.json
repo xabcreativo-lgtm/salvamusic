@@ -1,0 +1,23 @@
+{
+  "name": "Salva Music",
+  "short_name": "Salva Music",
+  "description": "Una aplicación privada de música en streaming, karaoke y modo offline para amigos y familia.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
